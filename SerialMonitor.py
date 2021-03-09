@@ -18,17 +18,16 @@ def serial_get_samples(port_name, no_samples, channels):
     data_received = list()
 
     try:
-        if sp.isOpen():
-            sp.close()
-        sp.open()
+        if not sp.isOpen():
+            sp.open()
 
-        data_to_send = [no_samples] + channels
-        sp.write(bytes(data_to_send))
+        data_to_send = no_samples.to_bytes(2, byteorder='little') + bytes(channels)
+        sp.write(data_to_send)
 
         for _ in range(no_samples):
             sample = list()
             for _ in channels:
-                sample.append(int.from_bytes(sp.read(2), byteorder = 'little'))
+                sample.append(int.from_bytes(sp.read(2), byteorder='little'))
             data_received.append(sample)
     
     except Exception as e:
@@ -124,8 +123,8 @@ while True:
             print('Error: No channels selected.')
             continue
 
-        if samples < 1 or samples > 255:
-            print('Error: Number of samples must be 1-255.')
+        if samples < 1 or samples > 65535:
+            print('Error: Number of samples must be between 1 and (2^16)-1.')
             continue
         
         if acquisitions < 1:
