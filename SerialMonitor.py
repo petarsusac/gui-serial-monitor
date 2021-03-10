@@ -123,8 +123,8 @@ while True:
             print('Error: No channels selected.')
             continue
 
-        if samples < 1 or samples > 65535:
-            print('Error: Number of samples must be between 1 and (2^16)-1.')
+        if samples < 1 or samples > 3000:
+            print('Error: Number of samples must be between 1 and 3000.')
             continue
         
         if acquisitions < 1:
