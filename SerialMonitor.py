@@ -15,31 +15,29 @@ def validate_number_input(input_key, window, values):
     if len(values[input_key]) > 0 and values[input_key][-1] not in ('0123456789'):
             window[input_key].update(values[input_key][:-1])
 
-def logging_time(file_name):
+def logging_time():
     now = datetime.datetime.now()
-    date = "Logging Finished: {}.{}.{} {}:{}:{}\
-        n".format(now.day, now.month, now.year, now.hour, now.minute, now.second)
-    file = open(file_name, "a")
-    file.write(date)
-    file.close()
+    date = "Logging Finished: {}.{}.{} {:02d}:{:02d}:{:02d}\n"\
+        .format(now.day, now.month, now.year, now.hour, now.minute, now.second)
+    return date
 
 
 def write_in_file(folder_path, board_rev, samples, channels, data):
-    file_name = 'm_{}'.format(measurment)
-    file = open(file_name, 'a')
+    file_name = 'm_{}.txt'.format(measurment)
+    file = open(file_name, 'w')
     os.path.join(folder_path, file_name)
     file.write("#setup 0\n")
     file.write("#notes .... \n")
     file.write("Board revision: 01\n") if board_rev == 'Rev01' else file.write("Board revision: 02\n")
     file.write("Firmware Version: yy.mm.ab\n")  #verzija softvera?
-    logging_time(file_name)
-    file.write('data {}, {}\n'.format(samples, channels))
+    file.write(logging_time())
+    file.write('data {}, {}\n'.format(samples, len(channels)))
     file.write('sample, ')
-    for i in range(channels):
-        file.wite('ch{}, '.format(i))
+    for i in range(1, len(channels) + 1):
+        file.write('ch{}, '.format(i))
     file.write('\n')
 
-    for index, in enumerate(data):               
+    for index in range(len(data)):               
         file.write('{}. '.format(index+1))
         for sample in data[index]:
             file.write("{}, ".format(sample))                
