@@ -4,48 +4,45 @@ import serial.tools.list_ports
 import time
 import datetime
 import os.path
+import os
 
 sg.theme('Default 1')
 
 # helper functions
 def get_port_names():
     return [port.name for port in serial.tools.list_ports.comports()]
-    
+
 def validate_number_input(input_key, window, values):
     if len(values[input_key]) > 0 and values[input_key][-1] not in ('0123456789'):
             window[input_key].update(values[input_key][:-1])
 
-def logging_time():
+def logging_time(file_name):
     now = datetime.datetime.now()
-    date = "Logging Finished: {}.{}.{} {:02d}:{:02d}:{:02d}\n"\
+    return "Logging Finished: {}.{}.{} {:02d}:{:02d}:{:02d}\n"\
         .format(now.day, now.month, now.year, now.hour, now.minute, now.second)
-    return date
 
 
-def write_in_file(folder_path, board_rev, samples, channels, data):
-    file_name = 'm_{}.txt'.format(measurment)
-    file = open(file_name, 'w')
-    os.path.join(folder_path, file_name)
-    file.write("#setup 0\n")
-    file.write("#notes .... \n")
-    file.write("Board revision: 01\n") if board_rev == 'Rev01' else file.write("Board revision: 02\n")
-    file.write("Firmware Version: yy.mm.ab\n")  #verzija softvera?
-    file.write(logging_time())
-    file.write('data {}, {}\n'.format(samples, len(channels)))
-    file.write('sample, ')
-    for i in range(1, len(channels) + 1):
-        file.write('ch{}, '.format(i))
-    file.write('\n')
+def write_in_file(folder_path, board_rev, samples, measurement, channels, data):
+    file_name = 'm_{:04d}.txt'.format(measurement)
+    file_name = os.path.join(folder_path, file_name)
+    with open(file_name, 'w') as file:
+        file.write("#setup 0\n")
+        file.write("#notes 3\n")
+        file.write("Board revision: 01\n") if board_rev == 'Rev01' else file.write("Board revision: 02\n")
+        file.write("Firmware Version: yy.mm.ab\n")  #verzija softvera?
+        file.write(logging_time(file_name))
+        file.write('#data {}, {}\n'.format(samples, len(channels) + 1))
+        file.write('sample, ')
+        chlist = str()
+        for i, _ in enumerate(channels):
+            chlist += 'ch{}, '.format(i + 1)
+        file.write(f'{chlist[:-2]}\n')
 
-    for index in range(len(data)):               
-        file.write('{}. '.format(index+1))
-        for sample in data[index]:
-            file.write("{}, ".format(sample))                
-        file.write('{}\n'.format(0.0))
-    
-
-    file.close()
-
+        for index, _ in enumerate(data):               
+            file.write('{}. '.format(index+1))
+            for sample in data[index]:
+                file.write("{}, ".format(sample))                
+            file.write('{}\n'.format(0.0))
 
 
 def serial_get_samples(port_name, no_samples, channels):
@@ -64,7 +61,7 @@ def serial_get_samples(port_name, no_samples, channels):
             for _ in channels:
                 sample.append(int.from_bytes(sp.read(2), byteorder='little'))
             data_received.append(sample)
-    
+
     except Exception as e:
         print('Error:', str(e))
 
@@ -126,17 +123,17 @@ layout = [
 
 window = sg.Window('Serial Monitor', layout)
 
-measurment = 0    #broj mjerenja
+measurement = 0    #broj mjerenja
 
 # event loop
 while True:
-    
+
 
     event, values = window.read()
 
     if event == sg.WINDOW_CLOSED:
         break
-    
+
     elif event == 'Start':
 
         window['-OUTPUT-'].update('') # clear output
@@ -165,38 +162,31 @@ while True:
         if samples < 1 or samples > 3000:
             print('Error: Number of samples must be between 1 and 3000.')
             continue
-        
-        if acquisitions < 1:
-            print('Error: Number of acquisitions must be greater than 0.')
-            continue
 
-        if acquisitions > 1:
-            print('Error: Multiple acquisitions are currently not supported. Work in progress.')
+        if acquisitions < 1 or acquisitions > 5000:
+            print('Error: Number of acquisitions must be greater than 0 and less than 5000.')
             continue
 
         if values['-BIN-']:
             print('Error: Binary files are currently not supported. Work in progress.')
             continue
 
-        measurment = measurment + 1
-
-
-        # get data from serial port
+        # request data via serial, write received data to file(s)
         print('Requesting {} samples from channels: {}\n'.format(samples, channels))
-        data = serial_get_samples(port, samples, channels)
-        
-        if data:
-            print('Received:')
-            for index, sample in enumerate(data):               #koristi ovo za upisivanje u file!!!!!!!!!!!!!!!!!!!!
-                print(index + 1, '. ', sample, sep='')          #OVO
-            print()
 
+        for measurement in range(1, acquisitions + 1):
+            data = serial_get_samples(port, samples, channels)
 
-            # TO DO: write to file(s)
-            write_in_file(folder_path, board_rev, samples, channels, data)
+            if data:            
+                print('Received (acquisition #{}):'.format(measurement))
+                for index, sample in enumerate(data):               
+                    print(index + 1, '. ', sample, sep='')         
+                print()
 
-            print('Logging finished:', time.strftime("%H:%M:%S", time.localtime()))
-    
+                write_in_file(folder_path, board_rev, samples, measurement, channels, data)
+
+        print('Logging finished:', time.strftime("%H:%M:%S", time.localtime()))
+
     # prevent user from typing in invalid values in samples and acquisitions fields
     elif event == '-SAMPLES-':
         validate_number_input('-SAMPLES-', window, values)
