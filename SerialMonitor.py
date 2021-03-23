@@ -119,15 +119,10 @@ layout = [
     ]
 ]
 
-
-
 window = sg.Window('Serial Monitor', layout)
-
-measurement = 0    #broj mjerenja
 
 # event loop
 while True:
-
 
     event, values = window.read()
 
