@@ -25,24 +25,30 @@ def logging_time(file_name):
 def write_in_file(folder_path, board_rev, samples, measurement, channels, data):
     file_name = 'm_{:04d}.txt'.format(measurement)
     file_name = os.path.join(folder_path, file_name)
-    with open(file_name, 'w') as file:
-        file.write("#setup 0\n")
-        file.write("#notes 3\n")
-        file.write("Board revision: 01\n") if board_rev == 'Rev01' else file.write("Board revision: 02\n")
-        file.write("Firmware Version: yy.mm.ab\n")  #verzija softvera?
-        file.write(logging_time(file_name))
-        file.write('#data {}, {}\n'.format(samples, len(channels) + 1))
-        file.write('sample, ')
-        chlist = str()
-        for i, _ in enumerate(channels):
-            chlist += 'ch{}, '.format(i + 1)
-        file.write(f'{chlist[:-2]}\n')
 
-        for index, _ in enumerate(data):               
-            file.write('{}. '.format(index+1))
-            for sample in data[index]:
-                file.write("{}, ".format(sample))                
-            file.write('{}\n'.format(0.0))
+    try:
+        with open(file_name, 'w') as file:
+            file.write("#setup 0\n")
+            file.write("#notes 3\n")
+            file.write("Board revision: 01\n") if board_rev == 'Rev01' else file.write("Board revision: 02\n")
+            file.write("Firmware Version: yy.mm.ab\n")  #verzija softvera?
+            file.write(logging_time(file_name))
+            file.write("#data {}, {}\n".format(samples, len(channels) + 1))
+            file.write("sample, ")
+            chlist = str()
+            for i, _ in enumerate(channels):
+                chlist += "ch{}, ".format(i + 1)
+            file.write(f'{chlist[:-2]}\n')
+
+            for index, _ in enumerate(data):               
+                file.write("{}, ".format(index+1))
+                row = str()
+                for sample in data[index]:
+                    row += "{}, ".format(sample)
+                file.write(row[:-2] + "\n")
+                
+    except Exception as e:
+        print('Error:', str(e))
 
 
 def serial_get_samples(port_name, no_samples, channels):
@@ -53,7 +59,7 @@ def serial_get_samples(port_name, no_samples, channels):
         if not sp.isOpen():
             sp.open()
 
-        data_to_send = no_samples.to_bytes(2, byteorder='little') + bytes(channels)  #SAMPLES AND CHANNELS
+        data_to_send = no_samples.to_bytes(2, byteorder='little') + bytes(channels)
         sp.write(data_to_send)
 
         for _ in range(no_samples):
@@ -143,7 +149,7 @@ while True:
         port = values['-PORT-']
         samples = int(values['-SAMPLES-'])
         acquisitions = int(values['-ACQUISITIONS-'])
-        board_rev = values['-BOARD_REV-']      #01/02
+        board_rev = values['-BOARD_REV-']
 
         channels_input = dict()
         for i in range(1, 9):
