@@ -67,6 +67,7 @@ def serial_get_samples(port_name, no_samples, channels):
             for _ in channels:
                 sample.append(int.from_bytes(sp.read(2), byteorder='little'))
             data_received.append(sample)
+            window.refresh()
 
     except Exception as e:
         print('Error:', str(e))
@@ -78,7 +79,7 @@ def serial_get_samples(port_name, no_samples, channels):
 
 # layouts
 ch_select_layout = [
-    [sg.Checkbox(i, key=f'ch{i}') for i in range(1, 4)],
+    [sg.Checkbox(i, key=f'ch{i}', default=True) for i in range(1, 4)],
     [sg.Checkbox(i, key=f'ch{i}')  for i in range(4, 7)],
     [sg.Checkbox(i, key=f'ch{i}')  for i in range(7, 9)]
 ]
@@ -91,9 +92,9 @@ column_layout = [
     ],
 
     [
-        sg.Input(key='-SAMPLES-', size=(15, 1), pad=((8, 20), 0), justification='center', enable_events=True),
-        sg.Input(key='-ACQUISITIONS-', size=(15, 1), pad=((0, 71), 0), justification='center', enable_events=True),
-        sg.Combo(['Rev01', 'Rev02'], key='-BOARD_REV-', size=(10, 1))
+        sg.Input(key='-SAMPLES-', size=(15, 1), pad=((8, 20), 0), justification='center', enable_events=True, default_text='100'),
+        sg.Input(key='-ACQUISITIONS-', size=(15, 1), pad=((0, 71), 0), justification='center', enable_events=True, default_text='1'),
+        sg.Combo(['Rev01', 'Rev02'], key='-BOARD_REV-', size=(10, 1), default_value='Rev02')
     ],
 
     [
@@ -112,7 +113,7 @@ layout = [
     [
         sg.Input(key='-FOLDER_PATH-', size=(50, 1)),
         sg.FolderBrowse(),
-        sg.Combo(get_port_names(), key='-PORT-', size=(10, 1), pad=((47, 0), 0))
+        sg.Combo(get_port_names(), key='-PORT-', size=(10, 1), pad=((47, 0), 0), default_value=get_port_names()[-1])
     ],
 
     [
@@ -121,7 +122,7 @@ layout = [
     ],
 
     [
-        sg.Multiline(key='-OUTPUT-', size=(79, 10), reroute_stdout=True, disabled=True)
+        sg.Multiline(key='-OUTPUT-', size=(79, 10), reroute_stdout=True, disabled=True, autoscroll=True)
     ]
 ]
 
