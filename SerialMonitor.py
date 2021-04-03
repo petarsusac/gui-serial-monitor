@@ -5,6 +5,7 @@ import time
 import datetime
 import os.path
 import os
+import threading
 
 sg.theme('Default 1')
 
@@ -51,9 +52,10 @@ def write_in_file(folder_path, board_rev, samples, measurement, channels, data):
         print('Error:', str(e))
 
 
-def serial_get_samples(port_name, no_samples, channels):
+def serial_get_samples(window, port_name, no_samples, channels):
     sp = serial.Serial(port_name, 9600)
-    data_received = list()
+    global data
+    data = list()
 
     try:
         if not sp.isOpen():
@@ -66,16 +68,20 @@ def serial_get_samples(port_name, no_samples, channels):
             sample = list()
             for _ in channels:
                 sample.append(int.from_bytes(sp.read(2), byteorder='little'))
-            data_received.append(sample)
-            window.refresh()
+            data.append(sample)
 
     except Exception as e:
         print('Error:', str(e))
 
     finally:
         sp.close()
-        return data_received
+        window.write_event_value('-SAMPLING_FINISHED-', None)
 
+
+def start_sampling():
+    global thread
+    thread = threading.Thread(target=serial_get_samples, args=(window, port, samples, channels))
+    thread.start()
 
 # layouts
 ch_select_layout = [
@@ -122,7 +128,7 @@ layout = [
     ],
 
     [
-        sg.Multiline(key='-OUTPUT-', size=(79, 10), reroute_stdout=True, disabled=True, autoscroll=True)
+        sg.Multiline(key='-OUTPUT-', size=(79, 15), reroute_stdout=True, disabled=True, autoscroll=True)
     ]
 ]
 
@@ -145,6 +151,8 @@ while True:
                 and values['-PORT-'] and values['-BOARD_REV-']):
             print('Error: All fields must be filled.')
             continue
+
+        global folder_path, port, samples, acquisitions, board_rev, channels
 
         folder_path = values['-FOLDER_PATH-']
         port = values['-PORT-']
@@ -173,21 +181,40 @@ while True:
             print('Error: Binary files are currently not supported. Work in progress.')
             continue
 
-        # request data via serial, write received data to file(s)
+        # disable start button so the user can't start another acquisition before this one is finished
+        window['Start'].update(disabled=True)
+        
+        # initialize global measurement counter
+        global measurement
+        measurement = 1
+
         print('Requesting {} samples from channels: {}\n'.format(samples, channels))
+        start_sampling()    
 
-        for measurement in range(1, acquisitions + 1):
-            data = serial_get_samples(port, samples, channels)
 
-            if data:            
-                print('Received (acquisition #{}):'.format(measurement))
-                for index, sample in enumerate(data):               
-                    print(index + 1, '. ', sample, sep='')         
-                print()
+    elif event == '-SAMPLING_FINISHED-':
+        thread.join()
 
-                write_in_file(folder_path, board_rev, samples, measurement, channels, data)
+        if data:            
+            write_in_file(folder_path, board_rev, samples, measurement, channels, data)
+            
+            print('Received (acquisition #{}):'.format(measurement))
+            for index, sample in enumerate(data):               
+                print(index + 1, '. ', sample, sep='')   
 
-        print('Logging finished:', time.strftime("%H:%M:%S", time.localtime()))
+                if index % 50 == 0:
+                    window.refresh()      
+            print()
+
+        # start another measurement if necessary
+        if measurement < acquisitions:
+            measurement += 1
+            start_sampling()
+        else:
+            window['Start'].update(disabled=False)
+            print('Logging finished:', time.strftime("%H:%M:%S", time.localtime()))
+
+
 
     # prevent user from typing in invalid values in samples and acquisitions fields
     elif event == '-SAMPLES-':
