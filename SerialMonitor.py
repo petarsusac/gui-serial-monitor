@@ -53,11 +53,11 @@ def write_in_file(folder_path, board_rev, samples, measurement, channels, data):
 
 
 def serial_get_samples(window, port_name, no_samples, channels):
-    sp = serial.Serial(port_name, 9600)
-    global data
-    data = list()
-
     try:
+        sp = serial.Serial(port_name, 9600)
+        global data
+        data = list()
+
         if not sp.isOpen():
             sp.open()
 
@@ -173,6 +173,10 @@ while True:
             print('Error: Number of samples must be between 1 and 3000.')
             continue
 
+        if samples % 10 != 0:
+            print('Error: Number of samples must be a multiple of 10.')
+            continue
+
         if acquisitions < 1 or acquisitions > 5000:
             print('Error: Number of acquisitions must be greater than 0 and less than 5000.')
             continue
@@ -193,8 +197,6 @@ while True:
 
 
     elif event == '-SAMPLING_FINISHED-':
-        thread.join()
-
         if data:            
             write_in_file(folder_path, board_rev, samples, measurement, channels, data)
             
