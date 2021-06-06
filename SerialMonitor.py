@@ -52,16 +52,16 @@ def write_in_file(folder_path, board_rev, samples, measurement, channels, data):
         print('Error:', str(e))
 
 
-def serial_get_samples(window, port_name, no_samples, channels):
+def serial_get_samples(window, port_name, no_samples, channels, board_rev):
     try:
-        sp = serial.Serial(port_name, 9600)
         global data
+        sp = serial.Serial(port_name, 9600)
         data = list()
 
         if not sp.isOpen():
             sp.open()
 
-        data_to_send = no_samples.to_bytes(2, byteorder='little') + bytes(channels)
+        data_to_send = board_rev.to_bytes(1, byteorder='little') + no_samples.to_bytes(2, byteorder='little') + bytes(channels)
         sp.write(data_to_send)
 
         for _ in range(no_samples):
@@ -80,7 +80,7 @@ def serial_get_samples(window, port_name, no_samples, channels):
 
 def start_sampling():
     global thread
-    thread = threading.Thread(target=serial_get_samples, args=(window, port, samples, channels))
+    thread = threading.Thread(target=serial_get_samples, args=(window, port, samples, channels, board_rev_no))
     thread.start()
 
 # layouts
@@ -100,7 +100,7 @@ column_layout = [
     [
         sg.Input(key='-SAMPLES-', size=(15, 1), pad=((8, 20), 0), justification='center', enable_events=True, default_text='100'),
         sg.Input(key='-ACQUISITIONS-', size=(15, 1), pad=((0, 71), 0), justification='center', enable_events=True, default_text='1'),
-        sg.Combo(['Rev01', 'Rev02'], key='-BOARD_REV-', size=(10, 1), default_value='Rev02')
+        sg.Combo(['Rev01', 'Rev02', 'Rev03'], key='-BOARD_REV-', size=(10, 1), default_value='Rev02')
     ],
 
     [
@@ -152,7 +152,7 @@ while True:
             print('Error: All fields must be filled.')
             continue
 
-        global folder_path, port, samples, acquisitions, board_rev, channels
+        global folder_path, port, samples, acquisitions, board_rev, board_rev_no, channels
 
         folder_path = values['-FOLDER_PATH-']
         port = values['-PORT-']
@@ -164,6 +164,15 @@ while True:
         for i in range(1, 9):
             channels_input[i] = values[f'ch{i}']
         channels = [ch for ch in channels_input if channels_input[ch]]
+
+        # select board rev number
+        board_rev_no = 0
+        if board_rev == 'Rev01':
+            board_rev_no = 1
+        elif board_rev == 'Rev02':
+            board_rev_no = 2
+        elif board_rev == 'Rev03':
+            board_rev_no = 3
 
         if(not channels):
             print('Error: No channels selected.')
@@ -183,6 +192,10 @@ while True:
 
         if values['-BIN-']:
             print('Error: Binary files are currently not supported. Work in progress.')
+            continue
+
+        if board_rev_no == 0:
+            print('Error: invalid board revision selection')
             continue
 
         # disable start button so the user can't start another acquisition before this one is finished
